@@ -85,7 +85,3 @@ The page will auto-reload when you make changes to the code.
 - `npm run build` - Build for production
 - `npm run start` - Start production server
 - `npm run lint` - Run ESLint
-
-## License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
