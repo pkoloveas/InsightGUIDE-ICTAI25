@@ -55,6 +55,7 @@ Create a `.env.local` file in the root directory and configure the following:
 NEXT_PUBLIC_HOST_IP=http://localhost:8000
 NEXT_PUBLIC_ENABLE_TESTING=false
 NEXT_PUBLIC_ENABLE_PRELOAD=true 
+NEXT_PUBLIC_PRELOAD_DEFAULT_ON=false
 ENABLE_PASSWORD_PROTECTION=true 
 USERNAME=your_username
 PASSWORD=your_password
@@ -63,6 +64,7 @@ PASSWORD=your_password
 - `NEXT_PUBLIC_HOST_IP`: URL of your backend API endpoint that processes PDFs and returns insights
 - `NEXT_PUBLIC_ENABLE_TESTING`: Set to `true` to enable testing functionality (test button in Insights card). Default is `false` if not set.
 - `NEXT_PUBLIC_ENABLE_PRELOAD`: Set to `true` to enable preload functionality (example papers toggle). Default is `false` if not set.
+- `NEXT_PUBLIC_PRELOAD_DEFAULT_ON`: Set to `true` to have preload mode ON by default at startup. Only applies when `NEXT_PUBLIC_ENABLE_PRELOAD=true`. Default is `false` if not set.
 - `ENABLE_PASSWORD_PROTECTION`: Set to `true` to enable password protection via browser authentication dialog. Default is `false` if not set.
 - `USERNAME`: The username required for access when password protection is enabled. **Required** when `ENABLE_PASSWORD_PROTECTION=true`.
 - `PASSWORD`: The password required for access when password protection is enabled. **Required** when `ENABLE_PASSWORD_PROTECTION=true`.

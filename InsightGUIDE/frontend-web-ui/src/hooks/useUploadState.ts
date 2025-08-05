@@ -30,7 +30,9 @@ interface UseUploadStateProps {
 
 export function useUploadState({ onError, onSuccess, selectedPaper }: UseUploadStateProps) {
   const [isUrlMode, setIsUrlMode] = useState<boolean>(false);
-  const [isPreloadMode, setIsPreloadMode] = useState<boolean>(false);
+  const [isPreloadMode, setIsPreloadMode] = useState<boolean>(
+    process.env.NEXT_PUBLIC_PRELOAD_DEFAULT_ON === 'true'
+  );
   const [pdfUrlInputValue, setPdfUrlInputValue] = useState<string>("");
   const [isUrlLoading, setIsUrlLoading] = useState<boolean>(false);
   const [urlError, setUrlError] = useState<string | null>(null);
@@ -67,8 +69,9 @@ export function useUploadState({ onError, onSuccess, selectedPaper }: UseUploadS
   }, []);
 
   const handleUrlModeToggle = useCallback((checked: boolean) => {
+    // Don't allow any toggling if a file is already loaded (from any source)
     if (uploadedFile && uploadedFile.length > 0) {
-      return; 
+      return; // Prevent any toggling when file is loaded - user must use "Clear Selection"
     }
     
     resetField("pdfFile");
@@ -82,15 +85,16 @@ export function useUploadState({ onError, onSuccess, selectedPaper }: UseUploadS
   }, [resetField, clearErrors, uploadedFile]);
 
   const handlePreloadModeToggle = useCallback((checked: boolean) => {
+    // Don't allow any toggling if a file is already loaded (from any source)
     if (uploadedFile && uploadedFile.length > 0) {
-      return; 
+      return; // Prevent any toggling when file is loaded - user must use "Clear Selection"
     }
     
     resetField("pdfFile");
     setIsPreloadMode(checked);
     if (checked) {
       setIsDraggingOver(false);
-      setIsUrlMode(false); 
+      setIsUrlMode(false); // Disable URL mode when preload is enabled
       setPdfUrlInputValue("");
       setUrlError(null);
     }
