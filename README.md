@@ -8,7 +8,7 @@ The proliferation of scientific literature presents an increasingly significant 
 
 ## Live Demo
 
-**Demo URL**: <https://placeholder.com>
+**Demo URL**: <https://insightguide.vercel.app/>
 
 **Access Credentials**:
 
