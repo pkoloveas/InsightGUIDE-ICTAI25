@@ -72,6 +72,8 @@ The `comparison/` folder contains:
 - **Actionable Reader Guidance**: Provides structured navigation paths like "For Technical Implementation: Start with Section 3 (Model Architecture) → Section 5 (Training)..." vs. no navigational guidance
 - **Output Format**: Structured with headers, bullet points, and visual "Priority Signals" vs. dense paragraph of continuous prose
 
+> More examples of PDF-InsightGUIDE MD outputs can be found in the [InsightGUIDE/frontend-web-ui/public/data/preload](./InsightGUIDE/frontend-web-ui/public/data/preload) folder (also avalable in the live demo by using the "Load Example Paper" functionality).
+
 ## Project Structure
 
 ```text
