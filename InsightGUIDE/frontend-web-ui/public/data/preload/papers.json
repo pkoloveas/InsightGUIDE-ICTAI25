@@ -18,5 +18,10 @@
     "id": "GPT-1",
     "title": "Improving Language Understanding by Generative Pre-Training",
     "filename": "GPT1-paper"
+  },
+  {
+    "id": "insightguide",
+    "title": "InsightGUIDE: An Opinionated AI Assistant for Guided Critical Reading of Scientific Literature",
+    "filename": "InsightGUIDE_paper"
   }
 ]
