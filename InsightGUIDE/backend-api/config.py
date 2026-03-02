@@ -31,6 +31,7 @@ class Config(BaseModel):
     save_extracted_content: bool = Field(default=False)
     upload_dir: str = Field(default="uploads")
     output_dir: str = Field(default="outputs")
+    ocr_timeout_ms: int = Field(default=300_000, gt=0)
     port: int = Field(default=8000, ge=1, le=65535)
     host: str = Field(default="0.0.0.0")
     log_level: str = Field(default="INFO")
@@ -119,6 +120,7 @@ def load_config() -> Config:
         "save_extracted_content": os.getenv("SAVE_EXTRACTED_CONTENT", "false").lower() in ("true", "1", "yes"),
         "upload_dir": os.getenv("UPLOAD_DIR", "uploads"),
         "output_dir": os.getenv("OUTPUT_DIR", "outputs"),
+        "ocr_timeout_ms": safe_int_parse(os.getenv("OCR_TIMEOUT_MS", ""), 300_000),
         "port": safe_int_parse(os.getenv("PORT", ""), 8000),
         "host": os.getenv("HOST", "0.0.0.0"),
         "log_level": os.getenv("LOG_LEVEL", "INFO"),

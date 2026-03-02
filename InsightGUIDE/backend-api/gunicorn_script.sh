@@ -3,6 +3,7 @@
 # InsightGUIDE API - Production Deployment Script
 # This script starts the FastAPI application using Gunicorn with optimized settings
 
+# Load environment variables from .env file
 if [ -f .env ]; then
     echo "Loading configuration from .env file..."
     export $(cat .env | grep -v '^#' | grep -v '^$' | xargs)
@@ -10,6 +11,7 @@ else
     echo "Warning: .env file not found, using default values"
 fi
 
+# Configuration
 WORKERS=4
 WORKER_CLASS="uvicorn.workers.UvicornWorker"
 HOST=${HOST:-0.0.0.0}
@@ -17,12 +19,15 @@ PORT=${PORT:-8000}
 BIND_ADDRESS="$HOST:$PORT"
 APP_MODULE="main:app"
 
+# Log files
 ACCESS_LOG="./logs/access.log"
 ERROR_LOG="./logs/error.log"
 LOG_LEVEL="info"
 
+# Create logs directory if it doesn't exist
 mkdir -p logs
 
+# Start the application
 gunicorn \
   --workers $WORKERS \
   --worker-class $WORKER_CLASS \

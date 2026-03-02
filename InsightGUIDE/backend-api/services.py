@@ -26,8 +26,11 @@ class APIClientService:
     def mistral_client(self) -> Mistral:
         """Get or create Mistral client."""
         if self._mistral_client is None:
-            self._mistral_client = Mistral(api_key=self.config.mistral_api_key)
-            logger.info("Mistral client initialized")
+            self._mistral_client = Mistral(
+                api_key=self.config.mistral_api_key,
+                timeout_ms=self.config.ocr_timeout_ms,
+            )
+            logger.info(f"Mistral client initialized (timeout: {self.config.ocr_timeout_ms}ms)")
         return self._mistral_client
     
     @property
@@ -82,6 +85,7 @@ class OCRService:
         uploaded_file = None
         
         try:
+            # Upload file to Mistral
             uploaded_file = self.mistral_client.files.upload(
                 file={
                     "file_name": pdf_filename or "document.pdf",
@@ -95,12 +99,14 @@ class OCRService:
                     f"Invalid response from Mistral API: {uploaded_file}"
                 )
             
+            # Get signed URL
             signed_url = self.mistral_client.files.get_signed_url(
                 file_id=uploaded_file.id, 
                 expiry=1
             )
             logger.info(f"File uploaded with ID: {uploaded_file.id}")
             
+            # Process OCR
             ocr_response = self.mistral_client.ocr.process(
                 document=DocumentURLChunk(document_url=signed_url.url),
                 model="mistral-ocr-latest",
@@ -115,6 +121,7 @@ class OCRService:
             raise OCRProcessingError(f"Failed to process PDF with OCR: {str(e)}")
         
         finally:
+            # Clean up uploaded file
             if uploaded_file and hasattr(uploaded_file, 'id'):
                 try:
                     self.mistral_client.files.delete(file_id=uploaded_file.id)

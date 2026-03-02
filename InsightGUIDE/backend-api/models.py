@@ -25,6 +25,24 @@ class PDFProcessResponse(BaseModel):
     )
 
 
+class PDFURLRequest(BaseModel):
+    """Request model for URL-based PDF processing endpoint."""
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "pdf_url": "https://arxiv.org/pdf/2501.00001.pdf"
+            }
+        }
+    )
+
+    pdf_url: str = Field(
+        ...,
+        description="Public URL to a PDF document",
+        min_length=1
+    )
+
+
 class OCRResponse(BaseModel):
     """Response model for OCR-only processing endpoint."""
     

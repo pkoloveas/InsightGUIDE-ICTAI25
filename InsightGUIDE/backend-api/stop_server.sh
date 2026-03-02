@@ -13,6 +13,7 @@ if [ -f "$PID_FILE" ]; then
         kill -TERM "$PID"
         sleep 2
         
+        # Check if process is still running
         if kill -0 "$PID" 2>/dev/null; then
             echo "Process still running, forcing shutdown..."
             kill -KILL "$PID"

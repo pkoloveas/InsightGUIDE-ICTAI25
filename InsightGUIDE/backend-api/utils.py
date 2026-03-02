@@ -48,10 +48,10 @@ def safe_filename(filename: str) -> str:
     if not filename:
         return "unnamed_file"
         
-    safe_name = re.sub(r'[<>:"/\\|?*]', '_', filename)
-    safe_name = re.sub(r'[\x00-\x1f\x7f-\x9f]', '', safe_name)
-    safe_name = safe_name.strip('. ')
-    safe_name = safe_name[:255]
+    safe_name = re.sub(r'[<>:"/\\|?*]', '_', filename)  # Remove or replace unsafe characters
+    safe_name = re.sub(r'[\x00-\x1f\x7f-\x9f]', '', safe_name)  # Remove control characters
+    safe_name = safe_name.strip('. ')  # Remove leading/trailing whitespace and dots
+    safe_name = safe_name[:255]  # Limit length
     
     if not safe_name:
         safe_name = "unnamed_file"
@@ -109,6 +109,8 @@ def fix_markdown_urls(markdown_content: str) -> str:
     if not markdown_content:
         return markdown_content
     
+    # Pattern to match markdown links: [text](url)
+    # This matches [anything](domain.tld/path) where domain.tld doesn't start with http/https
     link_pattern = r'\[([^\]]+)\]\(([^)]+)\)'
     
     def fix_url(match):
@@ -118,13 +120,16 @@ def fix_markdown_urls(markdown_content: str) -> str:
         if url.startswith(('http://', 'https://', 'ftp://', 'mailto:', '#', '/')):
             return match.group(0)
         
+        # Check if it looks like a domain (contains a dot and common TLD patterns)
         domain_pattern = r'^[a-zA-Z0-9][a-zA-Z0-9.-]*\.[a-zA-Z]{2,}'
         
         if re.match(domain_pattern, url):
+            # Add https:// protocol
             fixed_url = f"https://{url}"
             logger.debug(f"Fixed URL: {url} -> {fixed_url}")
             return f"[{text}]({fixed_url})"
         
+        # Return original if it doesn't look like a domain
         return match.group(0)
     
     fixed_content = re.sub(link_pattern, fix_url, markdown_content)

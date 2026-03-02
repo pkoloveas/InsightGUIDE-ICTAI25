@@ -2,10 +2,12 @@
 
 # Health check script for InsightGUIDE API
 
+# Load environment variables from .env file
 if [ -f .env ]; then
     export $(cat .env | grep -v '^#' | grep -v '^$' | xargs)
 fi
 
+# Set defaults if not found in .env
 HOST=${HOST:-localhost}
 PORT=${PORT:-8000}
 

@@ -135,6 +135,7 @@ Once running, access the interactive documentation:
 - **Swagger UI**: http://localhost:8000/docs
 - **ReDoc**: http://localhost:8000/redoc
 - **Health Check**: http://localhost:8000/health
+- **API Reference**: `API_REFERENCE.md`
 
 ## 🔗 API Endpoints
 
@@ -150,11 +151,12 @@ POST /api/process-pdf/
 Content-Type: multipart/form-data
 
 {
-  "pdf_file": [PDF file]
+  "pdf_file": [PDF file],
+  "pdf_url": "https://.../paper.pdf"  // optional alternative to pdf_file
 }
 ```
 
-Processes a PDF file to extract content and generate AI-powered insights.
+Processes a PDF file to extract content and generate AI-powered insights. Provide either `pdf_file` or `pdf_url`.
 
 #### Example Request
 ```bash
@@ -171,17 +173,37 @@ curl -X POST "http://localhost:8000/api/process-pdf/" \
 }
 ```
 
+### PDF Processing from URL (JSON)
+```http
+POST /api/process-pdf-url/
+Content-Type: application/json
+
+{
+  "pdf_url": "https://arxiv.org/pdf/2501.00001.pdf"
+}
+```
+
+Processes a PDF URL and generates AI-powered insights (standalone-friendly JSON input).
+
+#### Example Request
+```bash
+curl -X POST "http://localhost:8000/api/process-pdf-url/" \
+  -H "Content-Type: application/json" \
+  -d '{"pdf_url": "https://arxiv.org/pdf/2501.00001.pdf"}'
+```
+
 ### Text Extraction (OCR Only)
 ```http
 POST /api/extract-text/
 Content-Type: multipart/form-data
 
 {
-  "pdf_file": [PDF file]
+  "pdf_file": [PDF file],
+  "pdf_url": "https://.../paper.pdf"  // optional alternative to pdf_file
 }
 ```
 
-Extracts text content from a PDF file using OCR without generating AI insights.
+Extracts text content from a PDF file using OCR without generating AI insights. Provide either `pdf_file` or `pdf_url`.
 
 #### Example Request
 ```bash
@@ -198,11 +220,30 @@ curl -X POST "http://localhost:8000/api/extract-text/" \
 }
 ```
 
-## Project Structure
+### Text Extraction from URL (JSON)
+```http
+POST /api/extract-text-url/
+Content-Type: application/json
+
+{
+  "pdf_url": "https://arxiv.org/pdf/2501.00001.pdf"
+}
+```
+
+Extracts text content from a PDF URL using OCR without generating AI insights.
+
+#### Example Request
+```bash
+curl -X POST "http://localhost:8000/api/extract-text-url/" \
+  -H "Content-Type: application/json" \
+  -d '{"pdf_url": "https://arxiv.org/pdf/2501.00001.pdf"}'
+```
+
+## 📁 Project Structure
 
 ```
-backend-api/
-├── main.py                # FastAPI application entry point
+insightguide-back/
+├── main.py                 # FastAPI application entry point
 ├── config.py              # Configuration management with Pydantic
 ├── services.py            # Business logic services (OCR, AI, File)
 ├── models.py              # Pydantic models for API schemas
@@ -236,7 +277,7 @@ backend-api/
 | `HOST` | `0.0.0.0` | Server bind address |
 | `PORT` | `8000` | Server port |
 
-## AI Prompt Templates
+## 🤖 AI Prompt Templates
 
 The system uses configurable prompts in `system_prompts.yaml`:
 
