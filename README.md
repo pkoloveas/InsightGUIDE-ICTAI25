@@ -1,5 +1,7 @@
 # InsightGUIDE
 
+[![DOI](https://img.shields.io/badge/DOI-10.1109/ICTAI66417.2025.00169-blue.svg)](https://doi.org/10.1109/ICTAI66417.2025.00169) [![arXiv](https://img.shields.io/badge/arXiv-2509.20493-b31b1b.svg)](https://arxiv.org/abs/2509.20493) [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://www.gnu.org/licenses/old-licenses/gpl-2.0.en.html)
+
 This repository contains the code and supplementary material for the ICTAI 2025 submission introducing InsightGUIDE.
 
 ## Abstract
@@ -190,6 +192,31 @@ sudo systemctl start insightguide-compose.service
 ## License
 
 This project is licensed under the MIT License.
+
+## Who do I talk to?
+
+This repository is maintained by **Paris Koloveas** from Athena RC
+
+* Email: <pkoloveas@athenarc.gr>
+
+## Citing this work
+
+If you utilize any of the processes and scripts in this repository, please cite us in the following way:
+
+```bibtex
+@inproceedings{11272817,
+    author      = {Koloveas, Paris and 
+                  Chatzopoulos, Serafeim and 
+                  Vergoulis, Thanasis and 
+                  Tryfonopoulos, Christos},
+    booktitle   = {2025 IEEE 37th International Conference on Tools with Artificial Intelligence (ICTAI)}, 
+    title       = {InsightGUIDE: An Opinionated AI Assistant for Guided Critical Reading of Scientific Literature}, 
+    year        = {2025},
+    pages       = {1163-1167},
+    keywords    = {Text analysis;Large language models;Collaboration;Prompt engineering;Logic;Large Language Models;Prompt Engineering;Human-AI Collaboration;Scholarly Communication;Scientific Document Analysis},
+    doi         = {10.1109/ICTAI66417.2025.00169}}
+}
+```
 
 ## Related Links
 
