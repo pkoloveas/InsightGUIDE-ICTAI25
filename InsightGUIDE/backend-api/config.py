@@ -64,11 +64,9 @@ class Config(BaseModel):
 
 def load_system_prompt(prompt_file: str, prompt_key: str) -> str:
     """Load system prompt from YAML file."""
+    prompt_path = Path(prompt_file)
+
     try:
-        prompt_path = Path(prompt_file)
-        if not prompt_path.exists():
-            raise FileNotFoundError(f"System prompt file {prompt_file} not found")
-            
         with open(prompt_path, 'r', encoding='utf-8') as f:
             prompts_config = yaml.safe_load(f)
             
@@ -88,7 +86,9 @@ def load_system_prompt(prompt_file: str, prompt_key: str) -> str:
             
         logger.info(f"Successfully loaded system prompt '{prompt_key}' from {prompt_file}")
         return content
-        
+
+    except FileNotFoundError as e:
+        raise ValueError(f"System prompt file {prompt_file} not found") from e
     except yaml.YAMLError as e:
         raise ValueError(f"Error parsing YAML file {prompt_file}: {e}")
 

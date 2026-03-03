@@ -83,8 +83,7 @@ class TestPDFProcessingEndpoint:
         assert response.status_code == 400
         assert "does not appear to be a valid PDF" in response.json()["detail"]
     
-    @pytest.mark.asyncio
-    async def test_process_pdf_success(self, mock_services):
+    def test_process_pdf_success(self, mock_services):
         """Test successful PDF processing."""
         client = TestClient(app)
         
@@ -199,8 +198,7 @@ class TestTextExtractionEndpoint:
         assert response.status_code == 400
         assert "does not appear to be a valid PDF" in response.json()["detail"]
     
-    @pytest.mark.asyncio
-    async def test_extract_text_success(self, mock_services):
+    def test_extract_text_success(self, mock_services):
         """Test successful text extraction."""
         client = TestClient(app)
         
