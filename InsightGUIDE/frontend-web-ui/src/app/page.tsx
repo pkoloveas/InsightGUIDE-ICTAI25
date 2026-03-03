@@ -98,6 +98,8 @@ export default function InsightGUIDEPage() {
     pdfUrlInputValue,
     setPdfUrlInputValue,
     isUrlLoading,
+    selectedPdfUrl,
+    selectedPdfUrlFileName,
     urlError,
     isDraggingOver,
     setIsDraggingOver,
@@ -123,6 +125,7 @@ export default function InsightGUIDEPage() {
     insights,
     isLoading,
     submitPdf,
+    submitPdfUrl,
     clearInsights,
     setTestInsights,
   } = useApiState({
@@ -267,6 +270,17 @@ export default function InsightGUIDEPage() {
         updatePdfState({ pdfUrl: null });
       };
       reader.readAsDataURL(file);
+    } else if (isUrlMode && selectedPdfUrl) {
+      updatePdfState({
+        fileName: selectedPdfUrlFileName || "document.pdf",
+        pdfUrl: selectedPdfUrl,
+        currentPage: 1,
+        numPages: null,
+        pdfZoom: 1.0
+      });
+      if (error) {
+        clearUIError();
+      }
     } else {
        updatePdfState({
          fileName: null,
@@ -275,9 +289,20 @@ export default function InsightGUIDEPage() {
          pdfDisplayWidth: undefined
        });
     }
-  }, [uploadedFile, clearErrors]);
+  }, [uploadedFile, isUrlMode, selectedPdfUrl, selectedPdfUrlFileName, clearErrors]);
 
   const handleFormSubmit: SubmitHandler<FormSchema> = async (data) => {
+    if (isUrlMode) {
+      if (!selectedPdfUrl) {
+        setUIError("No PDF URL selected. Please load a valid URL first.");
+        return;
+      }
+
+      clearUIError();
+      await submitPdfUrl(selectedPdfUrl);
+      return;
+    }
+
     if (!data.pdfFile || data.pdfFile.length === 0) {
         setUIError("No PDF file selected or loaded to analyze.");
         return;
@@ -288,38 +313,9 @@ export default function InsightGUIDEPage() {
     await submitPdf(data.pdfFile[0]);
   };
 
-  const canAnalyze = (uploadedFile && uploadedFile.length > 0 && !formErrors.pdfFile) && !(isPreloadEnabled && isPreloadMode && selectedPaper);
-
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (!pdfState.pdfUrl || !pdfState.numPages) return;
-
-      const target = event.target as HTMLElement;
-      if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target.isContentEditable) {
-        return;
-      }
-
-      if (event.key === "ArrowLeft") {
-        if (pdfState.currentPage > 1) {
-          event.preventDefault();
-          pageControls.onPreviousPage();
-        }
-      } else if (event.key === "ArrowRight") {
-        if (pdfState.currentPage < pdfState.numPages) {
-          event.preventDefault();
-          pageControls.onNextPage();
-        }
-      }
-    };
-
-    if (pdfState.pdfUrl && pdfState.numPages) {
-      window.addEventListener("keydown", handleKeyDown);
-    }
-
-    return () => {
-      window.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [pdfState.pdfUrl, pdfState.numPages, pdfState.currentPage, pageControls]);
+  const hasUploadedFile = uploadedFile && uploadedFile.length > 0;
+  const hasSelectedUrl = isUrlMode && !!selectedPdfUrl;
+  const canAnalyze = (hasUploadedFile || hasSelectedUrl) && !formErrors.pdfFile && !(isPreloadEnabled && isPreloadMode && selectedPaper);
 
 
   const handleLoadPreloadedPaper = useCallback(async (paperId: string) => {
@@ -482,7 +478,7 @@ export default function InsightGUIDEPage() {
               )}
 
               <div className="flex justify-end items-center space-x-3 mt-4">
-                { ((uploadedFile && uploadedFile.length > 0) || (isPreloadEnabled && isPreloadMode && selectedPaper)) && !formErrors.pdfFile &&
+                { ((uploadedFile && uploadedFile.length > 0) || hasSelectedUrl || (isPreloadEnabled && isPreloadMode && selectedPaper)) && !formErrors.pdfFile &&
                     <Button variant="outline" size="sm" onClick={handleClearSelectionWithInsights} disabled={isLoading || isUrlLoading || isPreloadLoading} type="button">
                         Clear Selection
                     </Button>
@@ -643,9 +639,9 @@ export default function InsightGUIDEPage() {
                   onLoadSuccess={onDocumentLoadSuccess}
                   onLoadError={(err) => {
                     console.error("Error loading PDF document for preview:", err);
-                    const loadSource = fileName?.startsWith("downloaded_") ? "URL" : "file";
+                    const loadSource = isUrlMode ? "URL" : "file";
                     if (!formErrors.pdfFile) {
-                          setUIError(`Failed to load PDF for preview from ${loadSource}: ${err.message}. The file might be corrupted or not a standard PDF. You can still try to analyze it if it was loaded successfully into the form.`);
+                          setUIError(`Failed to load PDF for preview from ${loadSource}: ${err.message}. If this is a URL, preview can fail due to CORS while analysis can still succeed.`);
                     }
                   }}
                   loading={<div className="flex items-center justify-center h-full py-10"><Loader2 className="h-8 w-8 animate-spin text-primary" /> <span className="ml-2 text-muted-foreground">Loading PDF preview...</span></div>}
@@ -671,4 +667,3 @@ export default function InsightGUIDEPage() {
     </div>
   );
 }
-

@@ -315,7 +315,19 @@ class TestPDFURLProcessingEndpoint:
         )
 
         assert response.status_code == 400
-        assert "valid http(s) URL" in response.json()["detail"]
+        assert "valid HTTPS URL" in response.json()["detail"]
+
+    def test_process_pdf_url_rejects_restricted_address(self, mock_services):
+        """Test URL endpoint rejects private/restricted network targets."""
+        client = TestClient(app)
+
+        response = client.post(
+            "/api/process-pdf-url/",
+            json={"pdf_url": "https://127.0.0.1/paper.pdf"}
+        )
+
+        assert response.status_code == 400
+        assert "restricted network address" in response.json()["detail"]
 
 
 class TestOCRURLProcessingEndpoint:
@@ -375,4 +387,16 @@ class TestOCRURLProcessingEndpoint:
         )
 
         assert response.status_code == 400
-        assert "valid http(s) URL" in response.json()["detail"]
+        assert "valid HTTPS URL" in response.json()["detail"]
+
+    def test_extract_text_url_rejects_restricted_address(self, mock_services):
+        """Test OCR URL endpoint rejects private/restricted network targets."""
+        client = TestClient(app)
+
+        response = client.post(
+            "/api/extract-text-url/",
+            json={"pdf_url": "https://127.0.0.1/paper.pdf"}
+        )
+
+        assert response.status_code == 400
+        assert "restricted network address" in response.json()["detail"]

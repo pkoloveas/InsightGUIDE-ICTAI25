@@ -17,7 +17,6 @@ The proliferation of scientific literature presents an increasingly significant 
 
 > *Note: The demo environment may face some latency issues when it comes to processing new papers (~3 min/paper), it is highly recommended to use the pre-loaded papers to get an understanding of the system's capabilities.*
 
-
 ## Overview
 
 InsightGUIDE consists of two main components:

@@ -4,10 +4,10 @@ const nextConfig: NextConfig = {
   /* config options here */
   future: { webpack5: true },
   typescript: {
-    ignoreBuildErrors: true,
+    ignoreBuildErrors: process.env.NODE_ENV !== "production",
   },
   eslint: {
-    ignoreDuringBuilds: true,
+    ignoreDuringBuilds: process.env.NODE_ENV !== "production",
   },
   images: {
     remotePatterns: [

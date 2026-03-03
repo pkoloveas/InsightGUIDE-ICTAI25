@@ -35,6 +35,8 @@ export function useUploadState({ onError, onSuccess, selectedPaper }: UseUploadS
   );
   const [pdfUrlInputValue, setPdfUrlInputValue] = useState<string>("");
   const [isUrlLoading, setIsUrlLoading] = useState<boolean>(false);
+  const [selectedPdfUrl, setSelectedPdfUrl] = useState<string | null>(null);
+  const [selectedPdfUrlFileName, setSelectedPdfUrlFileName] = useState<string | null>(null);
   const [urlError, setUrlError] = useState<string | null>(null);
   const [isDraggingOver, setIsDraggingOver] = useState<boolean>(false);
 
@@ -77,6 +79,8 @@ export function useUploadState({ onError, onSuccess, selectedPaper }: UseUploadS
     resetField("pdfFile");
     setIsUrlMode(checked);
     setPdfUrlInputValue("");
+    setSelectedPdfUrl(null);
+    setSelectedPdfUrlFileName(null);
     setUrlError(null);
     if (checked) {
       setIsDraggingOver(false);
@@ -96,14 +100,16 @@ export function useUploadState({ onError, onSuccess, selectedPaper }: UseUploadS
       setIsDraggingOver(false);
       setIsUrlMode(false); // Disable URL mode when preload is enabled
       setPdfUrlInputValue("");
+      setSelectedPdfUrl(null);
+      setSelectedPdfUrlFileName(null);
       setUrlError(null);
     }
     clearErrors();
   }, [resetField, clearErrors, uploadedFile]);
 
   const handleLoadFromUrl = useCallback(async () => {
-    if (!pdfUrlInputValue || !pdfUrlInputValue.trim().startsWith('http')) {
-      setUrlError("Please enter a valid PDF URL (starting with http or https).");
+    if (!pdfUrlInputValue || !pdfUrlInputValue.trim()) {
+      setUrlError("Please enter a valid PDF URL.");
       return;
     }
 
@@ -111,44 +117,44 @@ export function useUploadState({ onError, onSuccess, selectedPaper }: UseUploadS
     setUrlError(null);
 
     try {
-      const response = await fetch(pdfUrlInputValue);
-      if (!response.ok) {
-        throw new Error(`Failed to fetch PDF: ${response.status} ${response.statusText}. Server might not allow direct fetching (CORS issue).`);
+      let parsedUrl: URL;
+      try {
+        parsedUrl = new URL(pdfUrlInputValue.trim());
+      } catch {
+        throw new Error("Please enter a valid URL.");
       }
 
-      const contentType = response.headers.get("content-type");
-      if (!contentType || !contentType.includes("application/pdf")) {
-        throw new Error("The linked resource does not appear to be a PDF file (Content-Type mismatch).");
+      if (parsedUrl.protocol !== "https:") {
+        throw new Error("Please enter a valid HTTPS PDF URL.");
       }
 
-      const blob = await response.blob();
-      if (blob.size > MAX_FILE_SIZE) {
-        throw new Error(`The PDF from URL exceeds the maximum file size of ${MAX_FILE_SIZE / (1024 * 1024)}MB.`);
-      }
+      const normalizedUrl = parsedUrl.toString();
+      const derivedFileName = extractFileNameFromUrl(normalizedUrl);
 
-      const derivedFileName = extractFileNameFromUrl(pdfUrlInputValue);
-      const file = new File([blob], derivedFileName, { type: "application/pdf" });
-
-      const dataTransfer = new DataTransfer();
-      dataTransfer.items.add(file);
-      setValue("pdfFile", dataTransfer.files, { shouldValidate: true });
+      resetField("pdfFile");
+      setSelectedPdfUrl(normalizedUrl);
+      setSelectedPdfUrlFileName(derivedFileName);
       setPdfUrlInputValue("");
       onSuccess(derivedFileName);
 
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const message = err instanceof Error
+        ? err.message
+        : "Could not use the provided URL.";
       console.error("Error loading PDF from URL:", err);
-      setUrlError(err.message || "Could not load PDF from the provided URL. This might be a CORS issue if fetching from a different domain.");
-      if (!(uploadedFile && uploadedFile.length > 0)) {
-        setValue("pdfFile", null as any, { shouldValidate: true });
-      }
+      setSelectedPdfUrl(null);
+      setSelectedPdfUrlFileName(null);
+      setUrlError(message);
     } finally {
       setIsUrlLoading(false);
     }
-  }, [pdfUrlInputValue, extractFileNameFromUrl, setValue, uploadedFile, onSuccess]);
+  }, [pdfUrlInputValue, extractFileNameFromUrl, onSuccess, resetField]);
 
   const handleClearSelection = useCallback(() => {
     resetField("pdfFile");
     setPdfUrlInputValue("");
+    setSelectedPdfUrl(null);
+    setSelectedPdfUrlFileName(null);
     setUrlError(null);
     setIsUrlMode(false);
     setIsPreloadMode(false);
@@ -159,6 +165,8 @@ export function useUploadState({ onError, onSuccess, selectedPaper }: UseUploadS
     // Reset other modes and set the preloaded file
     setIsUrlMode(false);
     setPdfUrlInputValue("");
+    setSelectedPdfUrl(null);
+    setSelectedPdfUrlFileName(null);
     setUrlError(null);
     clearErrors();
 
@@ -181,6 +189,8 @@ export function useUploadState({ onError, onSuccess, selectedPaper }: UseUploadS
     pdfUrlInputValue,
     setPdfUrlInputValue,
     isUrlLoading,
+    selectedPdfUrl,
+    selectedPdfUrlFileName,
     urlError,
     isDraggingOver,
     setIsDraggingOver,

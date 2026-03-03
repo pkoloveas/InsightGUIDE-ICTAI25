@@ -15,90 +15,124 @@ export function useApiState({ onError, onSuccess }: UseApiStateProps) {
   const [insights, setInsights] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
+  const getBackendBaseUrl = useCallback((): string | null => {
+    const baseUrl = process.env.NEXT_PUBLIC_BACKEND_BASE_URL;
+    if (!baseUrl) {
+      return null;
+    }
+
+    return baseUrl.replace(/\/+$/, "");
+  }, []);
+
+  const normalizeErrorMessage = useCallback((errorMessage: string): string => {
+    if (errorMessage.toLowerCase().includes('exceeds the model\'s max input limit') ||
+        errorMessage.toLowerCase().includes('context length') || 
+        errorMessage.toLowerCase().includes('token limit') ||
+        errorMessage.toLowerCase().includes('too long') ||
+        errorMessage.toLowerCase().includes('maximum length') ||
+        errorMessage.toLowerCase().includes('invalid_request_error')) {
+      return "This PDF exceeds the context length limit and is too large to process. Please try uploading a smaller PDF document with fewer pages or less text content.";
+    }
+    
+    if (errorMessage.toLowerCase().includes('timeout') ||
+        errorMessage.toLowerCase().includes('timed out')) {
+      return "The PDF processing timed out. This usually happens with very large files. Please try a smaller PDF document.";
+    }
+    
+    if (errorMessage.toLowerCase().includes('format') ||
+        errorMessage.toLowerCase().includes('invalid') ||
+        errorMessage.toLowerCase().includes('corrupted')) {
+      return "Unable to process this PDF file. The file may be corrupted, password-protected, or in an unsupported format. Please try a different PDF.";
+    }
+
+    return errorMessage;
+  }, []);
+
+  const readInsightsResponse = useCallback(async (response: Response): Promise<string> => {
+    const contentType = response.headers.get("content-type");
+
+    if (contentType && contentType.includes("application/json")) {
+      const jsonData = await response.json() as Partial<InsightResponse>;
+      if (jsonData && typeof jsonData.insights === 'string') {
+        return jsonData.insights;
+      }
+
+      throw new Error("Invalid JSON response: 'insights' field missing or not a string.");
+    }
+
+    const textData = await response.text();
+    if (!textData) {
+      throw new Error("Empty response from API.");
+    }
+
+    return textData;
+  }, []);
+
+  const processApiRequest = useCallback(async (endpoint: string, init: RequestInit) => {
+    const backendBaseUrl = getBackendBaseUrl();
+
+    if (!backendBaseUrl) {
+      onError("Backend API URL is not configured. Please set NEXT_PUBLIC_BACKEND_BASE_URL in your .env.local file.");
+      return;
+    }
+
+    try {
+      const response = await fetch(`${backendBaseUrl}${endpoint}`, init);
+
+      if (!response.ok) {
+        let errorMsg = `API Error: ${response.status} ${response.statusText}`;
+        try {
+          const errorData = await response.json() as Record<string, string>;
+          errorMsg = errorData.detail || errorData.message || errorData.error || errorMsg;
+        } catch {
+          // Ignore if error response is not JSON
+        }
+        throw new Error(errorMsg);
+      }
+
+      const insightsText = await readInsightsResponse(response);
+      setInsights(insightsText);
+      onSuccess(insightsText);
+
+    } catch (err: unknown) {
+      const rawError = err instanceof Error ? err.message : "An unknown error occurred during PDF processing.";
+      const normalizedError = normalizeErrorMessage(rawError);
+      onError(normalizedError);
+      console.error("PDF processing error:", err);
+    }
+  }, [getBackendBaseUrl, normalizeErrorMessage, onError, onSuccess, readInsightsResponse]);
+
   const submitPdf = useCallback(async (file: File) => {
     setIsLoading(true);
     
     const formData = new FormData();
     formData.append("pdf_file", file);
 
-    const backendApiUrl = process.env.NEXT_PUBLIC_BACKEND_BASE_URL 
-      ? `${process.env.NEXT_PUBLIC_BACKEND_BASE_URL}/api/process-pdf/` 
-      : null;
-
-    if (!backendApiUrl) {
-      onError("Backend API URL is not configured. Please set NEXT_PUBLIC_BACKEND_BASE_URL in your .env.local file.");
-      setIsLoading(false);
-      return;
-    }
-
     try {
-      const response = await fetch(backendApiUrl, {
+      await processApiRequest("/api/process-pdf/", {
         method: "POST",
         body: formData,
       });
-
-      if (!response.ok) {
-        let errorMsg = `API Error: ${response.status} ${response.statusText}`;
-        try {
-          const errorData = await response.json();
-          errorMsg = errorData.detail || errorData.message || errorData.error || errorMsg;
-        } catch (e) { 
-          // Ignore if error response is not json
-        }
-        throw new Error(errorMsg);
-      }
-
-      const contentType = response.headers.get("content-type");
-      let insightsText: string;
-
-      if (contentType && contentType.includes("application/json")) {
-        const jsonData = await response.json() as Partial<InsightResponse>;
-        if (jsonData && typeof jsonData.insights === 'string') {
-          insightsText = jsonData.insights;
-        } else {
-          throw new Error("Invalid JSON response: 'insights' field missing or not a string.");
-        }
-      } else {
-        const textData = await response.text();
-        if (textData) {
-          insightsText = textData;
-        } else {
-          throw new Error("Empty response from API.");
-        }
-      }
-
-      setInsights(insightsText);
-      onSuccess(insightsText);
-
-    } catch (err: any) {
-      let errorMessage = err.message || "An unknown error occurred during PDF processing.";
-      
-      if (errorMessage.toLowerCase().includes('exceeds the model\'s max input limit') ||
-          errorMessage.toLowerCase().includes('context length') || 
-          errorMessage.toLowerCase().includes('token limit') ||
-          errorMessage.toLowerCase().includes('too long') ||
-          errorMessage.toLowerCase().includes('maximum length') ||
-          errorMessage.toLowerCase().includes('invalid_request_error')) {
-        errorMessage = "This PDF exceeds the context length limit and is too large to process. Please try uploading a smaller PDF document with fewer pages or less text content.";
-      }
-      
-      else if (errorMessage.toLowerCase().includes('timeout') ||
-               errorMessage.toLowerCase().includes('timed out')) {
-        errorMessage = "The PDF processing timed out. This usually happens with very large files. Please try a smaller PDF document.";
-      }
-      
-      else if (errorMessage.toLowerCase().includes('format') ||
-               errorMessage.toLowerCase().includes('invalid') ||
-               errorMessage.toLowerCase().includes('corrupted')) {
-        errorMessage = "Unable to process this PDF file. The file may be corrupted, password-protected, or in an unsupported format. Please try a different PDF.";
-      }
-      
-      onError(errorMessage);
-      console.error("Upload error:", err);
     } finally {
       setIsLoading(false);
     }
-  }, [onError, onSuccess]);
+  }, [processApiRequest]);
+
+  const submitPdfUrl = useCallback(async (pdfUrl: string) => {
+    setIsLoading(true);
+
+    try {
+      await processApiRequest("/api/process-pdf-url/", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ pdf_url: pdfUrl }),
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  }, [processApiRequest]);
 
   const clearInsights = useCallback(() => {
     setInsights(null);
@@ -113,6 +147,7 @@ export function useApiState({ onError, onSuccess }: UseApiStateProps) {
     insights,
     isLoading,
     submitPdf,
+    submitPdfUrl,
     clearInsights,
     setTestInsights,
   };

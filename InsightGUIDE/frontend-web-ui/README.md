@@ -52,7 +52,7 @@ From the `frontent-web-ui` root directory, run:
 Create a `.env.local` file in the root directory and configure the following:
 
 ```env
-NEXT_PUBLIC_HOST_IP=http://localhost:8000
+NEXT_PUBLIC_BACKEND_BASE_URL=http://localhost:8000
 NEXT_PUBLIC_ENABLE_TESTING=false
 NEXT_PUBLIC_ENABLE_PRELOAD=true 
 NEXT_PUBLIC_PRELOAD_DEFAULT_ON=false
@@ -61,7 +61,7 @@ USERNAME=your_username
 PASSWORD=your_password
 ```
 
-- `NEXT_PUBLIC_HOST_IP`: URL of your backend API endpoint that processes PDFs and returns insights
+- `NEXT_PUBLIC_BACKEND_BASE_URL`: Base URL of your backend API endpoint that processes PDFs and returns insights
 - `NEXT_PUBLIC_ENABLE_TESTING`: Set to `true` to enable testing functionality (test button in Insights card). Default is `false` if not set.
 - `NEXT_PUBLIC_ENABLE_PRELOAD`: Set to `true` to enable preload functionality (example papers toggle). Default is `false` if not set.
 - `NEXT_PUBLIC_PRELOAD_DEFAULT_ON`: Set to `true` to have preload mode ON by default at startup. Only applies when `NEXT_PUBLIC_ENABLE_PRELOAD=true`. Default is `false` if not set.

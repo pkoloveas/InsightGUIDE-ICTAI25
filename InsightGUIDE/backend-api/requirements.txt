@@ -10,3 +10,4 @@ python-multipart>=0.0.6,<1.0.0
 pytest>=7.4.0,<8.0.0
 pytest-asyncio>=0.21.0,<1.0.0
 httpx>=0.26.0,<1.0.0
+starlette>=0.52.1

@@ -15,7 +15,7 @@ No authentication is currently required.
 
 - All PDF-processing endpoints validate file size against `MAX_FILE_SIZE` (default: `50MB`).
 - PDF content is validated by checking the `%PDF-` signature.
-- URL-based inputs must be `http` or `https`.
+- URL-based inputs must be `https`.
 - URL downloads follow redirects and enforce size limits during streaming.
 
 ## Error Response Shape
@@ -98,7 +98,7 @@ Validation errors (`400`):
 - `Please provide either a PDF file or a PDF URL`
 - `Invalid file type. Please upload a PDF file.`
 - `Invalid filename. Please ensure the file has a .pdf extension.`
-- `Invalid PDF URL. Please provide a valid http(s) URL.`
+- `Invalid PDF URL. Please provide a valid HTTPS URL.`
 - `URL does not point to a PDF file`
 - `File does not appear to be a valid PDF`
 - `Failed to download PDF from URL`

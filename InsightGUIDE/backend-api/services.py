@@ -6,6 +6,7 @@ from typing import Any, Dict, Optional
 from mistralai import Mistral, DocumentURLChunk
 from mistralai.models.ocrresponse import OCRResponse
 from openai import AsyncOpenAI
+from starlette.concurrency import run_in_threadpool
 
 from config import Config
 from exceptions import OCRProcessingError, AIInsightsError
@@ -55,6 +56,7 @@ class OCRService:
     
     def __init__(self, mistral_client: Mistral):
         self.mistral_client = mistral_client
+        self._ocr_semaphore = asyncio.Semaphore(4)
     
     def get_combined_markdown(self, ocr_response: OCRResponse) -> str:
         """Combine OCR text and images into a single markdown document."""
@@ -84,50 +86,55 @@ class OCRService:
         logger.info("Starting OCR processing with Mistral AI")
         uploaded_file = None
         
-        try:
-            # Upload file to Mistral
-            uploaded_file = self.mistral_client.files.upload(
-                file={
-                    "file_name": pdf_filename or "document.pdf",
-                    "content": pdf_bytes,
-                },
-                purpose="ocr"
-            )
-            
-            if not hasattr(uploaded_file, 'id'):
-                raise OCRProcessingError(
-                    f"Invalid response from Mistral API: {uploaded_file}"
+        async with self._ocr_semaphore:
+            try:
+                # The Mistral SDK methods are synchronous; run them in a threadpool to avoid blocking.
+                uploaded_file = await run_in_threadpool(
+                    self.mistral_client.files.upload,
+                    file={
+                        "file_name": pdf_filename or "document.pdf",
+                        "content": pdf_bytes,
+                    },
+                    purpose="ocr"
                 )
+                
+                if not hasattr(uploaded_file, 'id'):
+                    raise OCRProcessingError(
+                        f"Invalid response from Mistral API: {uploaded_file}"
+                    )
+                
+                signed_url = await run_in_threadpool(
+                    self.mistral_client.files.get_signed_url,
+                    file_id=uploaded_file.id,
+                    expiry=1
+                )
+                logger.info(f"File uploaded with ID: {uploaded_file.id}")
+                
+                ocr_response = await run_in_threadpool(
+                    self.mistral_client.ocr.process,
+                    document=DocumentURLChunk(document_url=signed_url.url),
+                    model="mistral-ocr-latest",
+                    include_image_base64=False
+                )
+                
+                logger.info(f"OCR processing completed for file ID: {uploaded_file.id}")
+                return self.get_combined_markdown(ocr_response)
+                
+            except Exception as e:
+                logger.error(f"OCR processing failed: {e}")
+                raise OCRProcessingError(f"Failed to process PDF with OCR: {str(e)}")
             
-            # Get signed URL
-            signed_url = self.mistral_client.files.get_signed_url(
-                file_id=uploaded_file.id, 
-                expiry=1
-            )
-            logger.info(f"File uploaded with ID: {uploaded_file.id}")
-            
-            # Process OCR
-            ocr_response = self.mistral_client.ocr.process(
-                document=DocumentURLChunk(document_url=signed_url.url),
-                model="mistral-ocr-latest",
-                include_image_base64=False
-            )
-            
-            logger.info(f"OCR processing completed for file ID: {uploaded_file.id}")
-            return self.get_combined_markdown(ocr_response)
-            
-        except Exception as e:
-            logger.error(f"OCR processing failed: {e}")
-            raise OCRProcessingError(f"Failed to process PDF with OCR: {str(e)}")
-        
-        finally:
-            # Clean up uploaded file
-            if uploaded_file and hasattr(uploaded_file, 'id'):
-                try:
-                    self.mistral_client.files.delete(file_id=uploaded_file.id)
-                    logger.info(f"Cleaned up Mistral file ID: {uploaded_file.id}")
-                except Exception as e:
-                    logger.error(f"Failed to delete Mistral file {uploaded_file.id}: {e}")
+            finally:
+                # Clean up uploaded file
+                if uploaded_file and hasattr(uploaded_file, 'id'):
+                    try:
+                        await run_in_threadpool(
+                            self.mistral_client.files.delete,
+                            file_id=uploaded_file.id
+                        )
+                        logger.info(f"Cleaned up Mistral file ID: {uploaded_file.id}")
+                    except Exception as e:
+                        logger.error(f"Failed to delete Mistral file {uploaded_file.id}: {e}")
 
 
 class InsightsService:

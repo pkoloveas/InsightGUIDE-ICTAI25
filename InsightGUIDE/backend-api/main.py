@@ -1,6 +1,9 @@
 import logging
+import ipaddress
+import socket
+import asyncio
 from contextlib import asynccontextmanager
-from typing import Optional, Tuple
+from typing import Optional, Set, Tuple
 from urllib.parse import urlparse, unquote
 
 import httpx
@@ -166,59 +169,156 @@ def _extract_filename_from_url(pdf_url: str) -> str:
     return filename
 
 
+def _raise_invalid_url(detail: str) -> None:
+    raise HTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        detail=detail
+    )
+
+
+def _is_restricted_ip_address(ip_obj) -> bool:
+    return (
+        ip_obj.is_private
+        or ip_obj.is_loopback
+        or ip_obj.is_link_local
+        or ip_obj.is_multicast
+        or ip_obj.is_reserved
+        or ip_obj.is_unspecified
+    )
+
+
+async def _validate_public_hostname(hostname: str, validated_hosts: Optional[Set[str]] = None) -> None:
+    normalized_hostname = hostname.lower()
+    if validated_hosts is not None and normalized_hostname in validated_hosts:
+        return
+
+    try:
+        loop = asyncio.get_running_loop()
+        addr_info = await loop.getaddrinfo(
+            normalized_hostname,
+            None,
+            type=socket.SOCK_STREAM
+        )
+    except socket.gaierror:
+        logger.warning(f"Failed to resolve hostname for PDF URL: {normalized_hostname}")
+        _raise_invalid_url("Failed to resolve PDF URL host")
+    except OSError as e:
+        logger.warning(f"Error resolving hostname for PDF URL {normalized_hostname}: {e}")
+        _raise_invalid_url("Failed to resolve PDF URL host")
+
+    if not addr_info:
+        logger.warning(f"No addresses resolved for PDF URL host: {normalized_hostname}")
+        _raise_invalid_url("Failed to resolve PDF URL host")
+
+    for info in addr_info:
+        sockaddr = info[4]
+        if not sockaddr:
+            continue
+
+        ip_raw = sockaddr[0]
+        try:
+            ip_obj = ipaddress.ip_address(ip_raw)
+        except ValueError:
+            logger.warning(f"Ignoring unparseable resolved IP '{ip_raw}' for host {normalized_hostname}")
+            continue
+
+        if _is_restricted_ip_address(ip_obj):
+            logger.warning(
+                f"Rejected PDF URL host {normalized_hostname}: resolved to restricted address {ip_obj}"
+            )
+            _raise_invalid_url("PDF URL points to a restricted network address")
+
+    if validated_hosts is not None:
+        validated_hosts.add(normalized_hostname)
+
+
+async def _validate_https_pdf_url(pdf_url: str, validated_hosts: Optional[Set[str]] = None):
+    parsed_url = urlparse(pdf_url)
+    if parsed_url.scheme.lower() != "https" or not parsed_url.netloc:
+        _raise_invalid_url("Invalid PDF URL. Please provide a valid HTTPS URL.")
+
+    if parsed_url.username or parsed_url.password:
+        _raise_invalid_url("PDF URL cannot include embedded credentials")
+
+    if not parsed_url.hostname:
+        _raise_invalid_url("Invalid PDF URL. Please provide a valid HTTPS URL.")
+
+    await _validate_public_hostname(parsed_url.hostname, validated_hosts)
+    return parsed_url
+
+
 async def download_pdf_from_url(pdf_url: str, max_file_size: int) -> Tuple[str, bytes]:
     """Download PDF bytes from URL and validate type and size constraints."""
-    parsed_url = urlparse(pdf_url)
-    if parsed_url.scheme not in {"http", "https"} or not parsed_url.netloc:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid PDF URL. Please provide a valid http(s) URL."
-        )
+    max_redirects = 5
+    validated_hosts: Set[str] = set()
 
     filename = _extract_filename_from_url(pdf_url)
 
     try:
         async with httpx.AsyncClient(
-            follow_redirects=True,
+            follow_redirects=False,
             timeout=httpx.Timeout(30.0, connect=10.0)
         ) as client:
-            async with client.stream("GET", pdf_url) as response:
-                response.raise_for_status()
+            current_url = pdf_url
+            pdf_bytes_buffer = bytearray()
 
-                content_type = response.headers.get("content-type", "").split(";")[0].strip().lower()
-                if content_type and content_type not in ALLOWED_URL_CONTENT_TYPES:
-                    logger.warning(f"Invalid content type from URL {pdf_url}: {content_type}")
-                    raise HTTPException(
-                        status_code=status.HTTP_400_BAD_REQUEST,
-                        detail="URL does not point to a PDF file"
-                    )
+            for _ in range(max_redirects + 1):
+                await _validate_https_pdf_url(current_url, validated_hosts)
 
-                content_length_header = response.headers.get("content-length")
-                if content_length_header:
-                    try:
-                        content_length = int(content_length_header)
-                    except ValueError:
-                        content_length = None
-
-                    if content_length and not validate_file_size(content_length, max_file_size):
-                        logger.warning(f"URL file too large: {format_file_size(content_length)}")
-                        raise HTTPException(
-                            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-                            detail=f"File too large. Maximum size: {format_file_size(max_file_size)}"
-                        )
-
-                pdf_bytes_buffer = bytearray()
-                async for chunk in response.aiter_bytes():
-                    if not chunk:
+                async with client.stream("GET", current_url) as response:
+                    if response.status_code in {301, 302, 303, 307, 308}:
+                        redirect_location = response.headers.get("location")
+                        if not redirect_location:
+                            logger.warning(f"Redirect response missing location header: {current_url}")
+                            raise HTTPException(
+                                status_code=status.HTTP_400_BAD_REQUEST,
+                                detail="Failed to download PDF from URL"
+                            )
+                        current_url = str(response.request.url.join(redirect_location))
                         continue
 
-                    pdf_bytes_buffer.extend(chunk)
-                    if not validate_file_size(len(pdf_bytes_buffer), max_file_size):
-                        logger.warning(f"URL file too large while streaming: {format_file_size(len(pdf_bytes_buffer))}")
+                    response.raise_for_status()
+
+                    content_type = response.headers.get("content-type", "").split(";")[0].strip().lower()
+                    if content_type and content_type not in ALLOWED_URL_CONTENT_TYPES:
+                        logger.warning(f"Invalid content type from URL {current_url}: {content_type}")
                         raise HTTPException(
-                            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-                            detail=f"File too large. Maximum size: {format_file_size(max_file_size)}"
+                            status_code=status.HTTP_400_BAD_REQUEST,
+                            detail="URL does not point to a PDF file"
                         )
+
+                    content_length_header = response.headers.get("content-length")
+                    if content_length_header:
+                        try:
+                            content_length = int(content_length_header)
+                        except ValueError:
+                            content_length = None
+
+                        if content_length and not validate_file_size(content_length, max_file_size):
+                            logger.warning(f"URL file too large: {format_file_size(content_length)}")
+                            raise HTTPException(
+                                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                                detail=f"File too large. Maximum size: {format_file_size(max_file_size)}"
+                            )
+
+                    async for chunk in response.aiter_bytes():
+                        if not chunk:
+                            continue
+
+                        pdf_bytes_buffer.extend(chunk)
+                        if not validate_file_size(len(pdf_bytes_buffer), max_file_size):
+                            logger.warning(f"URL file too large while streaming: {format_file_size(len(pdf_bytes_buffer))}")
+                            raise HTTPException(
+                                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                                detail=f"File too large. Maximum size: {format_file_size(max_file_size)}"
+                            )
+                    break
+            else:
+                logger.warning(f"Too many redirects while downloading PDF URL: {pdf_url}")
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Too many redirects while downloading PDF URL"
+                )
 
     except HTTPException:
         raise
