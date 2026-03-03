@@ -87,3 +87,41 @@ The page will auto-reload when you make changes to the code.
 - `npm run build` - Build for production
 - `npm run start` - Start production server
 - `npm run lint` - Run ESLint
+
+## Docker
+
+### Production image
+
+From `frontend-web-ui`:
+
+```bash
+docker build -t insightguide-frontend .
+docker run --rm \
+  --env-file .env.local \
+  -p 127.0.0.1:9002:3000 \
+  insightguide-frontend
+```
+
+`NEXT_PUBLIC_*` values are embedded during `npm run build`, so ensure `.env.local` has the correct production values before building.
+
+### Compose-based deployment
+
+From repository root:
+
+```bash
+docker compose -f docker-compose.yml up -d --build
+```
+
+### Compose-based development (hot reload)
+
+From repository root:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+```
+
+For domain deployment behind host Nginx, set:
+
+```env
+NEXT_PUBLIC_BACKEND_BASE_URL=https://api.example.com
+```

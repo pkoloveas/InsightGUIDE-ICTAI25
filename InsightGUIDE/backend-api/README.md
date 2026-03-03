@@ -119,6 +119,32 @@ gunicorn -w 4 -k uvicorn.workers.UvicornWorker main:app \
 
 **Note**: The `gunicorn_script.sh` automatically loads configuration from your `.env` file, including HOST and PORT settings. The script provides optimized production settings and proper logging configuration.
 
+### Docker (Production)
+
+Build and run backend container directly:
+
+```bash
+docker build -t insightguide-backend .
+docker run --rm \
+  --env-file .env \
+  -p 127.0.0.1:8000:8000 \
+  -v "$(pwd)/logs:/app/logs" \
+  -v "$(pwd)/outputs:/app/outputs" \
+  insightguide-backend
+```
+
+Recommended for full deployment: run from repository root with Compose:
+
+```bash
+docker compose -f docker-compose.yml up -d --build
+```
+
+When deployed behind host Nginx, set:
+
+```env
+FRONTEND_URL=https://app.example.com
+```
+
 ### Health Check
 
 ```bash

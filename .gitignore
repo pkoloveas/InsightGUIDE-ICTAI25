@@ -372,3 +372,6 @@ settings.json
 
 # app-specific
 outputs/
+
+# deployment
+deploy/

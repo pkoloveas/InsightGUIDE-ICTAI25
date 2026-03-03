@@ -106,6 +106,76 @@ InsightGUIDE-ICTAI25/
             └── data/preload/           # Example papers
 ```
 
+## Docker Deployment (Host Nginx)
+
+This repository includes production and development Docker Compose setups that keep ports localhost-bound for compatibility with host-level Nginx.
+
+### Production stack
+
+```bash
+# from repo root
+docker compose -f docker-compose.yml build
+docker compose -f docker-compose.yml up -d
+```
+
+Service bindings:
+
+- Frontend: `127.0.0.1:9002` (container port `3000`)
+- Backend: `127.0.0.1:8000` (container port `8000`)
+
+Health checks:
+
+```bash
+curl http://127.0.0.1:8000/health
+curl -I http://127.0.0.1:9002
+```
+
+### Required environment contract
+
+- Backend env file: `InsightGUIDE/backend-api/.env`
+- Frontend env file: `InsightGUIDE/frontend-web-ui/.env.local`
+- Example templates:
+  - `deploy/env/backend.env.example`
+  - `deploy/env/frontend.env.example`
+
+Required values for domain deployment:
+
+- `FRONTEND_URL=https://app.example.com`
+- `NEXT_PUBLIC_BACKEND_BASE_URL=https://api.example.com`
+
+Important: `NEXT_PUBLIC_*` values are compiled into the frontend bundle at image build time, so set `InsightGUIDE/frontend-web-ui/.env.local` correctly before running `docker compose build`.
+
+### Development hot-reload stack
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+```
+
+### Host Nginx templates
+
+Nginx vhost templates are included under `deploy/nginx/`:
+
+- `deploy/nginx/app.example.com.conf`
+- `deploy/nginx/api.example.com.conf`
+
+They proxy to localhost container ports and keep all backend routes available on the API domain (`/api/*`, `/health`, `/docs`, `/redoc`).
+
+### Boot auto-restart with systemd
+
+A systemd unit template is included at:
+
+- `deploy/systemd/insightguide-compose.service`
+
+Install on host:
+
+```bash
+sudo cp deploy/systemd/insightguide-compose.service /etc/systemd/system/
+sudo sed -i 's|<REPO_ROOT>|/absolute/path/to/InsightGUIDE-ICTAI25|' /etc/systemd/system/insightguide-compose.service
+sudo systemctl daemon-reload
+sudo systemctl enable insightguide-compose.service
+sudo systemctl start insightguide-compose.service
+```
+
 ## License
 
 This project is licensed under the MIT License.

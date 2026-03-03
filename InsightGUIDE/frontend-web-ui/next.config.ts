@@ -2,6 +2,7 @@ import type {NextConfig} from 'next';
 
 const nextConfig: NextConfig = {
   /* config options here */
+  output: "standalone",
   future: { webpack5: true },
   typescript: {
     ignoreBuildErrors: process.env.NODE_ENV !== "production",

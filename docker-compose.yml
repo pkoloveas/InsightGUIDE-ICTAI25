@@ -1,0 +1,53 @@
+services:
+  backend:
+    build:
+      context: ./InsightGUIDE/backend-api
+      dockerfile: Dockerfile
+    env_file:
+      - ./InsightGUIDE/backend-api/.env
+    environment:
+      HOST: 0.0.0.0
+      PORT: 8000
+    command: >-
+      sh -c "gunicorn -w $${WEB_CONCURRENCY:-4}
+      -k uvicorn.workers.UvicornWorker
+      main:app
+      --bind 0.0.0.0:$${PORT:-8000}
+      --access-logfile -
+      --error-logfile -
+      --timeout $${GUNICORN_TIMEOUT:-300}"
+    ports:
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - ./InsightGUIDE/backend-api/logs:/app/logs
+      - ./InsightGUIDE/backend-api/outputs:/app/outputs
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8000/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./InsightGUIDE/frontend-web-ui
+      dockerfile: Dockerfile
+    env_file:
+      - ./InsightGUIDE/frontend-web-ui/.env.local
+    environment:
+      PORT: 3000
+    command: ["node", "server.js"]
+    ports:
+      - "127.0.0.1:9002:3000"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "node -e \"const http=require('http');const req=http.get('http://127.0.0.1:3000',res=>process.exit(res.statusCode<500?0:1));req.on('error',()=>process.exit(1));req.setTimeout(5000,()=>{req.destroy();process.exit(1);});\"",
+        ]
+      interval: 30s
+      timeout: 8s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
