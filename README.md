@@ -134,9 +134,6 @@ curl -I http://127.0.0.1:9002
 
 - Backend env file: `InsightGUIDE/backend-api/.env`
 - Frontend env file: `InsightGUIDE/frontend-web-ui/.env.local`
-- Example templates:
-  - `deploy/env/backend.env.example`
-  - `deploy/env/frontend.env.example`
 
 Required values for domain deployment:
 
@@ -151,26 +148,40 @@ Important: `NEXT_PUBLIC_*` values are compiled into the frontend bundle at image
 docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
 ```
 
-### Host Nginx templates
+### Host Nginx integration
 
-Nginx vhost templates are included under `deploy/nginx/`:
+Configure host Nginx to proxy:
 
-- `deploy/nginx/app.example.com.conf`
-- `deploy/nginx/api.example.com.conf`
+- `app.example.com` -> `http://127.0.0.1:9002`
+- `api.example.com` -> `http://127.0.0.1:8000`
 
-They proxy to localhost container ports and keep all backend routes available on the API domain (`/api/*`, `/health`, `/docs`, `/redoc`).
+and forward standard proxy headers (`Host`, `X-Forwarded-Proto`, `X-Forwarded-For`, `X-Real-IP`). Keep backend routes on the API domain (`/api/*`, `/health`, `/docs`, `/redoc`).
 
 ### Boot auto-restart with systemd
 
-A systemd unit template is included at:
-
-- `deploy/systemd/insightguide-compose.service`
-
-Install on host:
+Create a systemd service on the host at `/etc/systemd/system/insightguide-compose.service`:
 
 ```bash
-sudo cp deploy/systemd/insightguide-compose.service /etc/systemd/system/
-sudo sed -i 's|<REPO_ROOT>|/absolute/path/to/InsightGUIDE-ICTAI25|' /etc/systemd/system/insightguide-compose.service
+sudo tee /etc/systemd/system/insightguide-compose.service >/dev/null <<'EOF'
+[Unit]
+Description=InsightGUIDE Docker Compose Stack
+Requires=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/absolute/path/to/InsightGUIDE-ICTAI25
+ExecStart=/usr/bin/docker compose -f docker-compose.yml up -d
+ExecStop=/usr/bin/docker compose -f docker-compose.yml down
+RemainAfterExit=yes
+Restart=on-failure
+RestartSec=10
+TimeoutStartSec=0
+
+[Install]
+WantedBy=multi-user.target
+EOF
 sudo systemctl daemon-reload
 sudo systemctl enable insightguide-compose.service
 sudo systemctl start insightguide-compose.service
